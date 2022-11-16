@@ -1,16 +1,22 @@
 # Brew Changelog
 
+## [Bug Fix] - 2022-11-14
+
+- Reduce memory requirements for the "Search" command.
+- Improve caching logic
+
+## [Updated dependencies] - 2022-11-11
+
+- Upgraded to latest node dependencies. Should fix a memory issue.
 
 ## [Improvements] - 2022-08-17
 
 - Add a copy install command action
 - Add run install command in terminal action
 
-
 ## [Bug Fix] - 2022-08-15
 
 - Fix error when loading "Show Outdated" command
-
 
 ## [Improvements] - 2022-08-10
 

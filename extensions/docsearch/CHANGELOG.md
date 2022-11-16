@@ -1,13 +1,24 @@
 # DocSearch Changelog
 
+## [Support for new documentation] - 2022-11-11
+
+- 📄 Support [Clerk](https://clerk.dev)
+- 📄 Support [Apollo](https://www.apollographql.com/docs/)
+- 📄 Support [Supabase](https://supabase.io/docs)
+- 📄 Support [Slidev](https://sli.dev) (english language)
+
+## [Support other DocSearch result and the new documentation] - 2022-08-22
+
+- 🌟 Support other DocSearch result.
+- 📄 Support [GitBook](https://docs.gitbook.com/).
+- 📄 Support [Raycast](https://developers.raycast.com/).
+
 ## [Support for the new documentation] - 2022-08-22
 
 - 🌟 Add quick search argument for documentation.
 - 📄 Support [Dubbo](https://dubbo.apache.org/)
 - 📄 Support [Nuxt](https://nuxtjs.org/)
 - 📄 Support [Nuxt3](https://v3.nuxtjs.org/)
-- 📄 Support [pnpm](https://pnpm.io/)
-- 📄 Support [pnpm(zh-Hans)](https://pnpm.io/zh/)
 - 📄 Support [React Bootstrap](https://react-bootstrap.github.io/)
 - 📄 Support [Remix](https://remix.run/)
 - 📄 Support [React Native](https://reactnative.dev/)

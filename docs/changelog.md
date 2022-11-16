@@ -1,5 +1,44 @@
 # Changelog
 
+## 1.43.0 - 2022-11-09
+
+### ✨ New
+
+- **Actions**: You can now specify an action to focus when opening the ActionPanel (and an ActionPanel.Submenu) by setting the `autoFocus` prop.
+- **Forms**: Introducing a new Form Item `Form.FilePicker` to select one or multiple files (or directories)
+
+### 💎 Improvements
+
+- **DX**: A warning will now be shown in the console when using async entry points for view and menu-bar commands.
+- **List/Grid**: Improved the keyword search algorithm to match intersecting keywords (for example, the search term ”black cat” matches keywords [”black”, “cat”]).
+- **Grid**: The grid supports a new property for configuring how sections are ordered. Setting `filtering={{ keepSectionOrder: true }}` ensures that the sections' order is not changed based on items' ranking values; this can be useful for use cases where a small number of fixed sections should always appear in the same order when the user filters the grid. We are deprecating the `enableFiltering` property.
+
+### 🐞 Fixes
+
+- Fixed the Grid or List’s selection sometimes not being preserved when native filtering is disabled.
+- The `Image.Mask.RoundedRectangle` mask will be more consistent regardless of the size of the image.
+- Fixed an issue where the specified `searchText` property would not always be respected.
+
+## 1.42.0 - 2022-10-26
+
+### ✨ New
+
+- The Node runtime has been updated to [Node 18](https://nodejs.org/en/blog/announcements/v18-release-announce/), the [current](https://github.com/nodejs/Release#release-schedule) Long-term Support (LTS) release.
+- Commands can now launch other commands! Using the new `launchCommand` method, you can now trigger a background refresh of another command in the same extension - or even open another command. Some use cases are updating a menu bar command from a view command or, vice versa, launching a companion view command from the menu bar. (Note that for now we only support launches of other commands within the same extension.)
+
+### 💎 Improvements
+
+- **Grid** now supports two new aspect ratios: 4/3 and 3/4.
+- **Menu Bar** icon tinting is now theme-aware.
+- **Background Refresh:** The shortest interval available is now 10s instead of 1m (use cautiously and also see our [best practices guide](https://developers.raycast.com/information/background-refresh#best-practices)).
+- **Grid**: The grid supports a new property for configuring how sections are ordered. Setting `filtering={{ keepSectionOrder: true }}` ensures that the section order is not changed based on items’ ranking values; this can be useful for use cases where a small number of fix sections should always appear in the same order when the user filters the list. We are deprecating the `enableFiltering` property.
+
+### 🐞 Fixes
+
+- **List Item Metadata Link and Detail Metadata Link** styling should now be consistent with their respective **List Item Metadata Label** and **Detail Metadata Label** respectively.
+- Fixed a bug where `List.Item`’s accessories might not be aligned.
+- Fixed a bug where the last API call or log in a no-view command would not run before the command gets unloaded.
+
 ## 1.41.0 - 2022-10-12
 
 ### New
@@ -7,8 +46,8 @@
 - **Grid**: the `Grid` component accepts three new props that should give extension authors more flexibility: `columns`, `fit` and `aspectRatio`.
 
 ![](.gitbook/assets/grid-styled-sections.png)
-    
-- **Grid Sections** don’t all have to look the same anymore! The grid `Section` component now *also* accepts the `columns`, `fit` and `aspectRatio` props. When specified, they will override the value of the parent `Grid` component’s prop.
+
+- **Grid Sections** don’t all have to look the same anymore! The grid `Section` component now _also_ accepts the `columns`, `fit` and `aspectRatio` props. When specified, they will override the value of the parent `Grid` component’s prop.
 - **List**: The list supports a new property for configuring how sections are ordered. Setting `filtering={{ keepSectionOrder: true }}` ensures that the section order is not changed based on items’ ranking values; this can be useful for use cases where a small number of fix sections should always appear in the same order when the user filters the list. We are deprecating the `enableFiltering` property.
 - **Menu Bar Extra:** added a new `Section` component, which can be used to better group related `Item`s and/or `Submenu`s. The component has an optional title for the section. At the same time, we are deprecating the `Separator` component.
 - **Menu Bar Extra**: The `Item` component now accepts an optional `subtitle` prop.
