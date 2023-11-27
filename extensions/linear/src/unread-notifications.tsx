@@ -1,4 +1,14 @@
-import { getApplications, MenuBarExtra, open, openCommandPreferences, launchCommand, LaunchType } from "@raycast/api";
+import {
+  getApplications,
+  MenuBarExtra,
+  open,
+  openCommandPreferences,
+  launchCommand,
+  LaunchType,
+  getPreferenceValues,
+  openExtensionPreferences,
+  Icon,
+} from "@raycast/api";
 import { NotificationResult } from "./api/getNotifications";
 import { updateNotification } from "./api/updateNotification";
 import View from "./components/View";
@@ -6,13 +16,12 @@ import { getNotificationMenuBarIcon, getNotificationMenuBarTitle, getNotificatio
 import { getUserIcon } from "./helpers/users";
 import useNotifications from "./hooks/useNotifications";
 
+const preferences = getPreferenceValues<Preferences.UnreadNotifications>();
+
 function UnreadNotifications() {
   const { isLoadingNotifications, unreadNotifications, urlKey, mutateNotifications } = useNotifications();
 
-  async function openNotification(notification: NotificationResult) {
-    const applications = await getApplications();
-    const linearApp = applications.find((app) => app.bundleId === "com.linear");
-    notification.issue ? await open(notification.issue.url, linearApp) : await openInbox();
+  async function markNotificationAsRead(notification: NotificationResult) {
     await mutateNotifications(updateNotification({ id: notification.id, readAt: new Date() }), {
       optimisticUpdate(data) {
         if (!data) {
@@ -27,6 +36,13 @@ function UnreadNotifications() {
     });
   }
 
+  async function openNotification(notification: NotificationResult) {
+    const applications = await getApplications();
+    const linearApp = applications.find((app) => app.bundleId === "com.linear");
+    notification.issue ? await open(notification.issue.url, linearApp) : await openInbox();
+    await markNotificationAsRead(notification);
+  }
+
   async function openInbox() {
     const applications = await getApplications();
     const linearApp = applications.find((app) => app.bundleId === "com.linear");
@@ -37,6 +53,10 @@ function UnreadNotifications() {
     const ellipsis = text.length > maxLength ? "…" : "";
     return text.substring(0, maxLength).trim() + ellipsis;
   };
+
+  if (!preferences.alwaysShow && !isLoadingNotifications && unreadNotifications && unreadNotifications.length === 0) {
+    return null;
+  }
 
   return (
     <MenuBarExtra
@@ -59,18 +79,31 @@ function UnreadNotifications() {
         />
 
         {unreadNotifications.map((notification) => {
-          const baseTitle = `${getNotificationTitle(notification)} by ${
+          const title = `${getNotificationTitle(notification)} by ${
             notification.actor ? notification.actor.displayName : "Linear"
           }`;
+
+          const icon = notification.actor ? getUserIcon(notification.actor) : "linear.png";
+          const subtitle = notification.issue?.title ? truncate(notification.issue.title, 20) : "";
+          const tooltip = `${notification.issue?.identifier}: ${notification.issue?.title}`;
 
           return (
             <MenuBarExtra.Item
               key={notification.id}
-              icon={notification.actor ? getUserIcon(notification.actor) : "linear.png"}
-              title={baseTitle}
-              subtitle={notification.issue?.title ? truncate(notification.issue.title, 20) : ""}
-              tooltip={`${notification.issue?.identifier}: ${notification.issue?.title}`}
+              icon={icon}
+              title={title}
+              subtitle={subtitle}
+              tooltip={tooltip}
               onAction={() => openNotification(notification)}
+              alternate={
+                <MenuBarExtra.Item
+                  icon={icon}
+                  title={title}
+                  subtitle="Mark as Read"
+                  tooltip={tooltip}
+                  onAction={() => markNotificationAsRead(notification)}
+                />
+              }
             />
           );
         })}
@@ -78,13 +111,18 @@ function UnreadNotifications() {
 
       <MenuBarExtra.Section>
         <MenuBarExtra.Item
+          icon={Icon.Eye}
           title="View All Notifications"
           onAction={() => launchCommand({ name: "notifications", type: LaunchType.UserInitiated })}
         />
         <MenuBarExtra.Item
           title="Configure Command"
+          icon={Icon.Gear}
           shortcut={{ modifiers: ["cmd"], key: "," }}
           onAction={() => openCommandPreferences()}
+          alternate={
+            <MenuBarExtra.Item title="Configure Extension" icon={Icon.Gear} onAction={openExtensionPreferences} />
+          }
         />
       </MenuBarExtra.Section>
     </MenuBarExtra>

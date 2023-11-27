@@ -3,10 +3,14 @@ import { handleError } from "./fetch";
 import { URLSearchParams } from "url";
 import { getPreferenceValues, showToast, Toast } from "@raycast/api";
 
-interface Collection {
+interface Tag {
   name: string;
+  originalName: string;
   color: string;
   icon: string;
+}
+interface Folder extends Tag {
+  orignalName: string;
 }
 
 export interface SearchQuery {
@@ -17,22 +21,24 @@ export interface SearchQuery {
   // Limit search scope to one specific Smart List.
   filter?: string;
 
-  // Identifier of Collection.
-  // Limit search scope to one specific collection.
-  collection?: string;
+  // Identifier of tag.
+  // Limit search scope to one specific tag.
+  tag?: string;
+
+  // Identifier of folder.
+  // Limit search scope to one specific folder.
+  folder?: string;
 
   // Limit search scope to starred or unstarred.
   starred?: "yes" | "no";
-
-  // If search should support Pinyin.
-  pinyin: "yes" | "no";
 
   // Bookmarks returned. 50 is the default and the maximum
   limit?: number;
 }
 
 export interface Link {
-  collections: Collection[];
+  tags: Tag[];
+  folder?: Folder;
   dateLastOpened: string;
   dateAdded: string;
   preferredBrowser: string;
@@ -42,19 +48,22 @@ export interface Link {
   title: string;
   url: string;
   description: string;
+  comment: string;
   hasLinkImage: boolean;
 }
 
 export interface Preferences {
   api_key: string;
-  usePinyin: boolean;
-  searchCollections: boolean;
+  searchTags: boolean;
+  searchFolders: boolean;
+  asIcons: boolean;
+  preferLinkIcons: boolean;
 }
 
 export default async function searchRequest(query: SearchQuery): Promise<[Link]> {
+  const preferences: Preferences = getPreferenceValues();
   // @ts-expect-error: Don’t know how to satify URLSearchParams’s type.
   const searchParams = new URLSearchParams(query);
-  const preferences: Preferences = getPreferenceValues();
   return fetch("http://127.0.0.1:6391/search?" + searchParams, {
     method: "GET",
     headers: {

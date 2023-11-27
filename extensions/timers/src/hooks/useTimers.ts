@@ -1,6 +1,6 @@
-import { environment } from "@raycast/api";
 import { useState } from "react";
 import {
+  checkForOverlyLoudAlert,
   createCustomTimer,
   deleteCustomTimer,
   ensureCTFileExists,
@@ -25,26 +25,30 @@ export default function useTimers() {
     setIsLoading(false);
   };
 
-  const handleStartTimer = (seconds: number, name: string) => {
+  const handleStartTimer = (seconds: number, name: string, launchedFromMenuBar = false) => {
+    if (!checkForOverlyLoudAlert(launchedFromMenuBar)) return;
     startTimer(seconds, name);
     refreshTimers();
   };
 
   const handleStopTimer = (timer: Timer) => {
     setTimers(timers?.filter((t: Timer) => t.originalFile !== timer.originalFile));
-    stopTimer(`${environment.supportPath}/${timer.originalFile}`);
+    stopTimer(timer.originalFile);
     refreshTimers();
   };
 
-  const handleStartCT = (customTimer: CustomTimer) => {
-    startTimer(customTimer.timeInSeconds, customTimer.name);
+  const handleStartCT = (customTimer: CustomTimer, launchedFromMenuBar = false) => {
+    if (!checkForOverlyLoudAlert(launchedFromMenuBar)) return;
+    startTimer(customTimer.timeInSeconds, customTimer.name, customTimer.selectedSound);
     refreshTimers();
   };
 
   const handleCreateCT = (timer: Timer) => {
+    // TODO: make it possible to provide selected sound into CustomTimer
     const customTimer: CustomTimer = {
       name: timer.name,
       timeInSeconds: timer.secondsSet,
+      selectedSound: "default",
     };
     createCustomTimer(customTimer);
     refreshTimers();

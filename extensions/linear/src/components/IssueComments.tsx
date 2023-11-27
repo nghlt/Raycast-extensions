@@ -35,7 +35,7 @@ export default function IssueComments({ issue }: IssueCommentsProps) {
       try {
         await showToast({ style: Toast.Style.Animated, title: "Deleting comment" });
 
-        await mutateComments(linearClient.commentDelete(commentId), {
+        await mutateComments(linearClient.deleteComment(commentId), {
           optimisticUpdate(data) {
             if (!data) {
               return data;
@@ -75,7 +75,6 @@ export default function IssueComments({ issue }: IssueCommentsProps) {
           </ActionPanel>
         }
       />
-
       {comments?.map((comment) => {
         const createdAt = new Date(comment.createdAt);
 

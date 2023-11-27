@@ -1,33 +1,13 @@
-import {
-  getPreferenceValues,
-  Clipboard,
-  Icon,
-  Toast,
-  confirmAlert,
-  showToast,
-  getSelectedText,
-  environment,
-} from "@raycast/api";
+import { getPreferenceValues, Clipboard, Toast, showToast, getSelectedText } from "@raycast/api";
 
 import fs from "fs";
 import fsPath from "path";
 import path from "path";
 import { readFile } from "fs/promises";
 import { homedir } from "os";
-import { useEffect, useMemo, useState } from "react";
+import { createContext, useEffect, useMemo, useState } from "react";
 
-import {
-  Note,
-  ObsidianJSON,
-  ObsidianVaultsState,
-  GlobalPreferences,
-  SearchNotePreferences,
-  Vault,
-  QuickLookPreferences,
-  MediaState,
-  Media,
-  CodeBlock,
-} from "../utils/interfaces";
+import { Note, ObsidianJSON, ObsidianVaultsState, Vault, MediaState, Media, CodeBlock } from "../utils/interfaces";
 
 import {
   BYTES_PER_KILOBYTE,
@@ -37,9 +17,11 @@ import {
   LATEX_REGEX,
   MONTH_NUMBER_TO_STRING,
 } from "./constants";
-import { isNotePinned, unpinNote } from "./pinNoteUtils";
-import { useNotes } from "./cache";
-import { MediaLoader } from "./loader";
+
+import { MediaLoader } from "./data/loader";
+
+import { NoteReducerAction } from "./data/reducers";
+import { GlobalPreferences, SearchNotePreferences } from "./preferences";
 
 export function getCodeBlocks(content: string): CodeBlock[] {
   const codeBlockMatches = content.matchAll(CODE_BLOCK_REGEX);
@@ -52,7 +34,7 @@ export function getCodeBlocks(content: string): CodeBlock[] {
 }
 
 export function filterContent(content: string) {
-  const pref: QuickLookPreferences = getPreferenceValues();
+  const pref: GlobalPreferences = getPreferenceValues();
 
   if (pref.removeYAML) {
     const yamlHeader = content.match(/---(.|\n)*?---/gm);
@@ -78,7 +60,7 @@ export function filterContent(content: string) {
   return content;
 }
 
-export function getNoteFileContent(path: string, filter = true) {
+export function getNoteFileContent(path: string, filter = false) {
   let content = "";
   content = fs.readFileSync(path, "utf8") as string;
   return filter ? filterContent(content) : content;
@@ -86,8 +68,9 @@ export function getNoteFileContent(path: string, filter = true) {
 
 export function vaultPluginCheck(vaults: Vault[], plugin: string) {
   const vaultsWithoutPlugin: Vault[] = [];
+  const { configFileName } = getPreferenceValues();
   vaults = vaults.filter((vault: Vault) => {
-    const communityPluginsPath = vault.path + "/.obsidian/community-plugins.json";
+    const communityPluginsPath = `${vault.path}/${configFileName || ".obsidian"}/community-plugins.json`;
     if (!fs.existsSync(communityPluginsPath)) {
       vaultsWithoutPlugin.push(vault);
     } else {
@@ -101,6 +84,59 @@ export function vaultPluginCheck(vaults: Vault[], plugin: string) {
     }
   });
   return [vaults, vaultsWithoutPlugin];
+}
+
+export function getUserIgnoreFilters(vault: Vault) {
+  const { configFileName } = getPreferenceValues();
+  const appJSONPath = `${vault.path}/${configFileName || ".obsidian"}/app.json`;
+  if (!fs.existsSync(appJSONPath)) {
+    return [];
+  } else {
+    const appJSON = JSON.parse(fs.readFileSync(appJSONPath, "utf-8"));
+    return appJSON["userIgnoreFilters"] || [];
+  }
+}
+
+export function getBookmarkedJSON(vault: Vault) {
+  const { configFileName } = getPreferenceValues();
+  const bookmarkedNotesPath = `${vault.path}/${configFileName || ".obsidian"}/bookmarks.json`;
+  if (!fs.existsSync(bookmarkedNotesPath)) {
+    return [];
+  } else {
+    return JSON.parse(fs.readFileSync(bookmarkedNotesPath, "utf-8"))["items"] || [];
+  }
+}
+
+export function writeToBookmarkedJSON(vault: Vault, bookmarkedNotes: Note[]) {
+  const { configFileName } = getPreferenceValues();
+  const bookmarkedNotesPath = `${vault.path}/${configFileName || ".obsidian"}/bookmarks.json`;
+  fs.writeFileSync(bookmarkedNotesPath, JSON.stringify({ items: bookmarkedNotes }));
+}
+
+export function getBookmarkedNotePaths(vault: Vault) {
+  const bookmarkedNotes = getBookmarkedJSON(vault);
+  return bookmarkedNotes.map((note: { type: string; title: string; path: string }) => note.path);
+}
+
+export function bookmarkNote(vault: Vault, note: Note) {
+  const bookmarkedNotes = getBookmarkedJSON(vault);
+  const bookmarkedNote = {
+    type: "file",
+    title: note.title,
+    path: note.path.split(vault.path)[1].slice(1),
+  };
+  bookmarkedNotes.push(bookmarkedNote);
+  writeToBookmarkedJSON(vault, bookmarkedNotes);
+}
+
+export function unbookmarkNote(vault: Vault, note: Note) {
+  const bookmarkedNotes = getBookmarkedJSON(vault);
+  const index = bookmarkedNotes.findIndex(
+    (bookmarked: { type: string; title: string; path: string }) =>
+      bookmarked.path === note.path.split(vault.path)[1].slice(1)
+  );
+  bookmarkedNotes.splice(index, 1);
+  writeToBookmarkedJSON(vault, bookmarkedNotes);
 }
 
 function getVaultNameFromPath(vaultPath: string): string {
@@ -125,6 +161,7 @@ export function parseVaults(): Vault[] {
   return vaultString
     .split(",")
     .filter((vaultPath) => vaultPath.trim() !== "")
+    .filter((vaultPath) => fs.existsSync(vaultPath))
     .map((vault) => ({ name: getVaultNameFromPath(vault.trim()), key: vault.trim(), path: vault.trim() }));
 }
 
@@ -166,26 +203,10 @@ export function useObsidianVaults(): ObsidianVaultsState {
   return state;
 }
 
-export async function deleteNote(note: Note, vault: Vault) {
-  const options = {
-    title: "Delete Note",
-    message: 'Are you sure you want to delete the note: "' + note.title + '"?',
-    icon: Icon.ExclamationMark,
-  };
-  if (await confirmAlert(options)) {
-    try {
-      fs.unlinkSync(note.path);
-      if (isNotePinned(note, vault)) {
-        unpinNote(note, vault);
-      }
-      showToast({ title: "Deleted Note", style: Toast.Style.Success });
-      return true;
-    } catch (error) {
-      return false;
-    }
-  } else {
-    return false;
-  }
+export function deleteNote(note: Note) {
+  fs.unlinkSync(note.path);
+  showToast({ title: "Deleted Note", style: Toast.Style.Success });
+  return true;
 }
 
 export function sortByAlphabet(a: string, b: string) {
@@ -235,38 +256,50 @@ export async function getClipboardContent() {
   return clipboardText ? clipboardText : "";
 }
 
-export async function applyTemplates(content: string) {
+async function ISO8601_week_no(dt: Date) {
+  const tdt = new Date(dt.getTime());
+  const dayn = (dt.getDay() + 6) % 7;
+  tdt.setDate(tdt.getDate() - dayn + 3);
+  const firstThursday = tdt.getTime();
+  tdt.setMonth(0, 1);
+  if (tdt.getDay() !== 4) {
+    tdt.setMonth(0, 1 + ((4 - tdt.getDay() + 7) % 7));
+  }
+  return 1 + Math.ceil((firstThursday - tdt.getTime()) / 604800000);
+}
+
+/** both content and template might have templates to apply */
+export async function applyTemplates(content: string, template = "") {
   const date = new Date();
+  const week = await ISO8601_week_no(date);
   const hours = date.getHours().toString().padStart(2, "0");
   const minutes = date.getMinutes().toString().padStart(2, "0");
   const seconds = date.getSeconds().toString().padStart(2, "0");
-
   const timestamp = Date.now().toString();
-
-  content = content.replaceAll("{time}", date.toLocaleTimeString());
-  content = content.replaceAll("{date}", date.toLocaleDateString());
-
-  content = content.replaceAll("{year}", date.getFullYear().toString());
-  content = content.replaceAll("{month}", MONTH_NUMBER_TO_STRING[date.getMonth()]);
-  content = content.replaceAll("{day}", DAY_NUMBER_TO_STRING[date.getDay()]);
-
-  content = content.replaceAll("{hour}", hours);
-  content = content.replaceAll("{minute}", minutes);
-  content = content.replaceAll("{second}", seconds);
-  content = content.replaceAll("{millisecond}", date.getMilliseconds().toString());
-
-  content = content.replaceAll("{timestamp}", timestamp);
-  content = content.replaceAll("{zettelkastenID}", timestamp);
-
   const clipboard = await getClipboardContent();
-  content = content.replaceAll("{clipboard}", clipboard);
-  content = content.replaceAll("{clip}", clipboard);
 
-  content = content.replaceAll("{\n}", "\n");
-  content = content.replaceAll("{newline}", "\n");
-  content = content.replaceAll("{nl}", "\n");
-
-  return content;
+  const preprocessed = template.includes("{content}")
+    ? template // Has {content} e.g. | {hour}:{minute} | {content} |
+    : template + content; // Does not have {content}, then add it to the end
+  return preprocessed
+    .replaceAll("{content}", content)
+    .replaceAll("{time}", date.toLocaleTimeString())
+    .replaceAll("{date}", date.toLocaleDateString())
+    .replaceAll("{week}", week.toString().padStart(2, "0"))
+    .replaceAll("{year}", date.getFullYear().toString())
+    .replaceAll("{month}", MONTH_NUMBER_TO_STRING[date.getMonth()])
+    .replaceAll("{day}", DAY_NUMBER_TO_STRING[date.getDay()])
+    .replaceAll("{hour}", hours)
+    .replaceAll("{minute}", minutes)
+    .replaceAll("{second}", seconds)
+    .replaceAll("{millisecond}", date.getMilliseconds().toString())
+    .replaceAll("{timestamp}", timestamp)
+    .replaceAll("{zettelkastenID}", timestamp)
+    .replaceAll("{clipboard}", clipboard)
+    .replaceAll("{clip}", clipboard)
+    .replaceAll("{\n}", "\n")
+    .replaceAll("{newline}", "\n")
+    .replaceAll("{nl}", "\n");
 }
 
 export async function appendSelectedTextTo(note: Note) {
@@ -294,17 +327,81 @@ export async function appendSelectedTextTo(note: Note) {
   }
 }
 
-export const getOpenVaultTarget = (vault: Vault) => {
-  return "obsidian://open?vault=" + encodeURIComponent(vault.name);
-};
+export enum ObsidianTargetType {
+  OpenVault = "obsidian://open?vault=",
+  OpenPath = "obsidian://open?path=",
+  DailyNote = "obsidian://advanced-uri?daily=true&vault=",
+  DailyNoteAppend = "obsidian://advanced-uri?daily=true&mode=append",
+  NewNote = "obsidian://new?vault=",
+  AppendTask = "obsidian://advanced-uri?mode=append&filepath=",
+}
 
-export const getOpenPathInObsidianTarget = (path: string) => {
-  return "obsidian://open?path=" + encodeURIComponent(path);
-};
+export type ObsidianTarget =
+  | { type: ObsidianTargetType.OpenVault; vault: Vault }
+  | { type: ObsidianTargetType.OpenPath; path: string }
+  | { type: ObsidianTargetType.DailyNote; vault: Vault }
+  | { type: ObsidianTargetType.DailyNoteAppend; vault: Vault; text: string; heading?: string; silent?: boolean }
+  | { type: ObsidianTargetType.NewNote; vault: Vault; name: string; content?: string }
+  | {
+      type: ObsidianTargetType.AppendTask;
+      vault: Vault;
+      text: string;
+      path: string;
+      heading?: string;
+      silent?: boolean;
+    };
 
-export const getDailyNoteTarget = (vault: Vault) => {
-  return "obsidian://advanced-uri?vault=" + encodeURIComponent(vault.name) + "&daily=true";
-};
+export function getObsidianTarget(target: ObsidianTarget) {
+  switch (target.type) {
+    case ObsidianTargetType.OpenVault: {
+      return ObsidianTargetType.OpenVault + encodeURIComponent(target.vault.name);
+    }
+    case ObsidianTargetType.OpenPath: {
+      return ObsidianTargetType.OpenPath + encodeURIComponent(target.path);
+    }
+    case ObsidianTargetType.DailyNote: {
+      return ObsidianTargetType.DailyNote + encodeURIComponent(target.vault.name);
+    }
+    case ObsidianTargetType.DailyNoteAppend: {
+      const headingParam = target.heading ? "&heading=" + encodeURIComponent(target.heading) : "";
+      return (
+        ObsidianTargetType.DailyNoteAppend +
+        "&data=" +
+        encodeURIComponent(target.text) +
+        "&vault=" +
+        encodeURIComponent(target.vault.name) +
+        headingParam +
+        (target.silent ? "&openmode=silent" : "")
+      );
+    }
+    case ObsidianTargetType.NewNote: {
+      return (
+        ObsidianTargetType.NewNote +
+        encodeURIComponent(target.vault.name) +
+        "&name=" +
+        encodeURIComponent(target.name) +
+        "&content=" +
+        encodeURIComponent(target.content || "")
+      );
+    }
+    case ObsidianTargetType.AppendTask: {
+      const headingParam = target.heading ? "&heading=" + encodeURIComponent(target.heading) : "";
+      return (
+        ObsidianTargetType.AppendTask +
+        encodeURIComponent(target.path) +
+        "&data=" +
+        encodeURIComponent(target.text) +
+        "&vault=" +
+        encodeURIComponent(target.vault.name) +
+        headingParam +
+        (target.silent ? "&openmode=silent" : "")
+      );
+    }
+    default: {
+      return "";
+    }
+  }
+}
 
 export function getListOfExtensions(media: Media[]) {
   const foundExtensions: string[] = [];
@@ -317,46 +414,31 @@ export function getListOfExtensions(media: Media[]) {
   return foundExtensions;
 }
 
-function setExtensionVersion(version: string) {
-  fs.writeFileSync(environment.supportPath + "/version.txt", version);
-}
-
-export function getCurrentPinnedVersion() {
-  if (!fs.existsSync(environment.supportPath + "/version.txt")) {
-    setExtensionVersion("");
-    return undefined;
-  } else {
-    const version = fs.readFileSync(environment.supportPath + "/version.txt", "utf8");
-    return version;
-  }
-}
-
 export function isNote(note: Note | undefined): note is Note {
   return (note as Note) !== undefined;
 }
 
-export function getRandomNote(vault: Vault | Vault[]) {
-  let notes: Note[] = [];
-  if (Array.isArray(vault)) {
-    for (const v of vault) {
-      notes = [...notes, ...useNotes(v)];
+function validFile(file: string, includes: string[]) {
+  for (const include of includes) {
+    if (include && file.includes(include)) {
+      return false;
     }
-  } else {
-    notes = useNotes(vault);
   }
-
-  const randomNote = notes[Math.floor(Math.random() * notes.length)];
-  return randomNote;
+  return true;
 }
 
 export function walkFilesHelper(dirPath: string, exFolders: string[], fileEndings: string[], arrayOfFiles: string[]) {
   const files = fs.readdirSync(dirPath);
+  const { configFileName } = getPreferenceValues();
 
   arrayOfFiles = arrayOfFiles || [];
 
   for (const file of files) {
     const next = fs.statSync(dirPath + "/" + file);
-    if (next.isDirectory() && !file.includes(".obsidian")) {
+    if (
+      next.isDirectory() &&
+      validFile(file, [".git", ".obsidian", ".trash", ".excalidraw", ".mobile", configFileName].filter(Boolean))
+    ) {
       arrayOfFiles = walkFilesHelper(dirPath + "/" + file, exFolders, fileEndings, arrayOfFiles);
     } else {
       if (
@@ -364,6 +446,7 @@ export function walkFilesHelper(dirPath: string, exFolders: string[], fileEnding
         file !== ".md" &&
         !file.includes(".excalidraw") &&
         !dirPath.includes(".obsidian") &&
+        !dirPath.includes(configFileName || ".obsidian") &&
         validFolder(dirPath, exFolders)
       ) {
         arrayOfFiles.push(path.join(dirPath, "/", file));
@@ -375,7 +458,10 @@ export function walkFilesHelper(dirPath: string, exFolders: string[], fileEnding
 }
 
 export function validFolder(folder: string, exFolders: string[]) {
-  for (const f of exFolders) {
+  for (let f of exFolders) {
+    if (f.endsWith("/")) {
+      f = f.slice(0, -1);
+    }
     if (folder.includes(f)) {
       return false;
     }
@@ -436,3 +522,7 @@ export function useMedia(vault: Vault) {
 
   return media;
 }
+
+export const NotesContext = createContext([] as Note[]);
+// eslint-disable-next-line @typescript-eslint/no-empty-function
+export const NotesDispatchContext = createContext((() => {}) as (action: NoteReducerAction) => void);

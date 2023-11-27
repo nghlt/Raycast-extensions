@@ -29,12 +29,9 @@ export default function Command() {
 
 ```typescript
 import { Detail } from "@raycast/api";
-import { pathToFileURL } from "url";
-
-const image = pathToFileURL(`${environment.assetsPath}/image.png`).href;
 
 export default function Command() {
-  return <Detail markdown={`![Image Title](${image})`} />;
+  return <Detail markdown={`![Image Title](example.png)`} />;
 }
 ```
 
@@ -44,6 +41,10 @@ export default function Command() {
 #### Props
 
 <PropsTableFromJSDoc component="Detail" />
+
+{% hint style="info" %}
+You can specify custom image dimensions by adding a `raycast-width` and `raycast-height` query string to the markdown image. For example: `![Image Title](example.png?raycast-width=250&raycast-height=250)`
+{% endhint %}
 
 ### Detail.Metadata
 

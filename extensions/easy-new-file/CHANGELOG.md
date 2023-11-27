@@ -1,5 +1,15 @@
 # Easy New File Changelog
 
+## [Optimize file operations] - 2023-11-13
+
+- Optimize the selection of files and directories
+- List layout add Detail show file icon
+- Some minor view interface updates
+
+## [Fix text error] - 2023-02-07
+
+- Fix text error in preferences
+
 ## [Fix bug] - 2022-11-01
 
 - Fix the bug that RTF files cannot be opened normally

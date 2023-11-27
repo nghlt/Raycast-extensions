@@ -1,10 +1,10 @@
-import { environment, getPreferenceValues, Image, List } from "@raycast/api";
+import { environment, getPreferenceValues, List } from "@raycast/api";
 import { TimeInfo, Timezone } from "../types/types";
-import Mask = Image.Mask;
 import { weeks } from "../utils/costants";
 import { buildDayAndNightIcon, isEmpty } from "../utils/common-utils";
 import fileUrl from "file-url";
 import { Preferences } from "../types/preferences";
+import { getAvatarIcon } from "@raycast/utils";
 
 export function TimeInfoDetail(props: { timeInfo: TimeInfo; detailLoading: boolean; timezone?: Timezone }) {
   const { timezone, detailLoading, timeInfo } = props;
@@ -16,7 +16,7 @@ export function TimeInfoDetail(props: { timeInfo: TimeInfo; detailLoading: boole
         !detailLoading && showClock
           ? `<img src="${fileUrl(
               `${environment.assetsPath}/${
-                environment.theme === "light" ? "clock-icons" : "clock-icons@dark"
+                environment.appearance === "light" ? "clock-icons" : "clock-icons@dark"
               }/${new Date(timeInfo.datetime).getHours()}.svg`
             )}" alt="${timeInfo.timezone}" height="190" />`
           : undefined
@@ -33,11 +33,7 @@ export function TimeInfoDetail(props: { timeInfo: TimeInfo; detailLoading: boole
             )}
             <List.Item.Detail.Metadata.Label
               title="Timezone"
-              icon={{
-                source: `https://avatars.dicebear.com/api/initials/${timeInfo.timezone}.png`,
-                mask: Mask.Circle,
-                fallback: "world-clock.png",
-              }}
+              icon={getAvatarIcon(timeInfo.timezone.replace("/", " "))}
               text={timeInfo.timezone}
             />
             <List.Item.Detail.Metadata.Separator />

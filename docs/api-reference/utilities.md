@@ -16,6 +16,23 @@ async function getApplications(path?: PathLike): Promise<Application[]>;
 
 #### Example
 
+{% tabs %}
+{% tab title="Find Application" %}
+
+```typescript
+import { getApplications, Application } from "@raycast/api";
+
+// it is a lot more reliable to get an app by its bundle ID than its path
+async function findApplication(bundleId: string): Application | undefined {
+  const installedApplications = await getApplications();
+  return installedApplications.filter((application) => application.bundleId == bundleId);
+}
+```
+
+{% endtab %}
+
+{% tab title="List Installed Applications" %}
+
 ```typescript
 import { getApplications } from "@raycast/api";
 
@@ -25,6 +42,9 @@ export default async function Command() {
   console.log(installedApplications.map((a) => a.name).join(", "));
 }
 ```
+
+{% endtab %}
+{% endtabs %}
 
 #### Parameters
 
@@ -61,7 +81,32 @@ export default async function Command() {
 
 #### Return
 
-The default [Application](#application) that would open the file. Throws an error if no application was found.
+A Promise that resolves with the default [Application](#application) that would open the file. If no application was found, the promise will be rejected.
+
+### getFrontmostApplication
+
+Returns the frontmost application.
+
+#### Signature
+
+```typescript
+async function getFrontmostApplication(): Promise<Application>;
+```
+
+#### Example
+
+```typescript
+import { getFrontmostApplication } from "@raycast/api";
+
+export default async function Command() => {
+  const defaultApplication = await getFrontmostApplication();
+  console.log(`The frontmost application is: ${frontmostApplication.name}`);
+};
+```
+
+#### Return
+
+A Promise that resolves with the frontmost [Application](#application). If no application was found, the promise will be rejected.
 
 ### showInFinder
 
@@ -154,41 +199,6 @@ export default async function Command() {
 
 A Promise that resolves when the target has been opened.
 
-### launchCommand
-
-Launches another command of the same extension.
-Use this method if your command needs to open another command based on user interaction,
-or when an immediate background refresh should be triggered, for example when a command needs to update an associated menu-bar command.
-
-#### Signature
-
-```typescript
-async function launchCommand(options: {
-  name: string;
-  type: LaunchType;
-  arguments?: Arguments | null;
-  context?: LaunchContext | null;
-}): Promise<void>;
-```
-
-#### Example
-
-```typescript
-import { launchCommand, LaunchType } from "@raycast/api";
-
-export default async function Command() {
-  await launchCommand({ name: "list", type: LaunchType.UserInitiated, context: { foo: "bar" } });
-}
-```
-
-#### Parameters
-
-<FunctionParametersTableFromJSDoc name="launchCommand" />
-
-#### Return
-
-A Promise that resolves when the command has been launched. (Note that this does not indicate that the launched command has finished executing.)
-
 ## Types
 
 ### Application
@@ -209,7 +219,3 @@ PathLike: string | Buffer | URL;
 ```
 
 Supported path types.
-
-### Arguments
-
-Holds the arguments (entered in Raycast Root Search Bar) that are passed to the command. The key is the `name` defined in manifest file and value is the user's input.

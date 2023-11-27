@@ -27,6 +27,7 @@ export default function useOpenAICompletionApi(config: { apiKey: string }) {
           // There's a bug in the openai library where the auth header isn't being set
           // Set it manually here instead
           headers: { Authorization: `Bearer ${config.apiKey}` },
+          signal: cancelRef.current.signal,
         });
 
         setChoices({ choices: data.choices });
@@ -59,6 +60,7 @@ export default function useOpenAICompletionApi(config: { apiKey: string }) {
           // There's a bug in the openai library where the auth header isn't being set
           // Set it manually here instead
           headers: { Authorization: `Bearer ${config.apiKey}` },
+          signal: cancelRef.current.signal,
         });
 
         setModels(data.data.filter(({ id, owned_by }) => id.includes(":ft")).sort((a, b) => a.created - b.created));
@@ -86,7 +88,7 @@ export default function useOpenAICompletionApi(config: { apiKey: string }) {
 export type PreferredModel = { id: string; description: string; max: number };
 export const PREFERRED_MODELS: PreferredModel[] = [
   {
-    id: "text-davinci-002",
+    id: "text-davinci-003",
     description:
       "Most capable GPT-3 model. Can do any task the other models can do, often with less context. In addition to responding to prompts, also supports inserting completions within text.",
     max: 4000,
